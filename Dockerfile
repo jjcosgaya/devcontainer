@@ -1,22 +1,38 @@
+# syntax=docker/dockerfile:1
 FROM ubuntu:24.04
 
-COPY bashrc /root/.bashrc
-COPY nvim /root/.config/nvim
-RUN touch /root/.bash_history
+# Pin versions here; bump deliberately instead of getting "latest" by surprise.
+ARG NVIM_VERSION=v0.12.2
+ARG NVM_VERSION=v0.40.4
+ARG NODE_VERSION=--lts
 
-WORKDIR /workspace
+# Tool PATHs declared up front so they work in non-interactive shells too
+# (e.g. `podman exec mycontainer cargo build`), not just login shells.
+ENV PATH="/root/.local/bin:/root/.cargo/bin:/usr/local/node/bin:${PATH}"
 
-RUN apt update && apt install curl git gh gcc make fd-find fzf jq gnupg lsb-release -y
+# --- Base packages (rarely changes) ---
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && apt update \
+    && apt install -y \
+        ca-certificates curl git gh gcc make unzip \
+        fd-find fzf jq ripgrep gnupg lsb-release \
+        python3 \
+    && ln -s "$(command -v fdfind)" /usr/local/bin/fd \
+    && ln -s "$(command -v python3)" /usr/local/bin/python \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
 
+# --- yazi (third-party repo) ---
 RUN curl -sS https://debian.griffo.io/EA0F721D231FDD3A0A17B9AC7808B4DD62C41256.asc \
-    | gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/debian.griffo.io.gpg \
+        | gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/debian.griffo.io.gpg \
     && echo "deb https://debian.griffo.io/apt $(lsb_release -sc) main" \
-       > /etc/apt/sources.list.d/debian.griffo.io.list \
+        > /etc/apt/sources.list.d/debian.griffo.io.list \
     && apt update \
     && apt install -y yazi \
     && apt clean \
     && rm -rf /var/lib/apt/lists/*
 
+# --- Neovim (pinned) ---
 RUN set -eux; \
     ARCH="$(uname -m)"; \
     case "$ARCH" in \
@@ -24,20 +40,41 @@ RUN set -eux; \
         aarch64) NVIM_ARCH="arm64" ;; \
         *)       echo "Unsupported architecture: $ARCH"; exit 1 ;; \
     esac; \
-    curl -LO "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-${NVIM_ARCH}.tar.gz"; \
+    curl -fLO "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/nvim-linux-${NVIM_ARCH}.tar.gz"; \
     tar xzf "nvim-linux-${NVIM_ARCH}.tar.gz"; \
     mv "nvim-linux-${NVIM_ARCH}" /usr/local/nvim; \
     ln -s /usr/local/nvim/bin/nvim /usr/local/bin/nvim; \
     rm "nvim-linux-${NVIM_ARCH}.tar.gz"
 
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+# --- uv (told not to touch .bashrc; PATH already set above) ---
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
 
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | PROFILE="${BASH_ENV}" bash
-RUN bash -c "source /root/.nvm/nvm.sh && nvm install --lts && npm install -g pnpm"
+# --- Rust (likewise no profile edits; no redundant `rustup update`) ---
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y --no-modify-path --default-toolchain stable
 
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && rustup update
+# --- Node via nvm + pnpm ---
+# PROFILE=/dev/null stops the installer from editing .bashrc (we manage that ourselves).
+# The /usr/local/node symlink exposes the default node on PATH for non-interactive shells.
+RUN curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" \
+        | PROFILE=/dev/null bash \
+    && bash -c 'source /root/.nvm/nvm.sh \
+        && nvm install ${NODE_VERSION} \
+        && nvm alias default node \
+        && npm install -g pnpm \
+        && ln -s "$(dirname "$(dirname "$(nvm which default)")")" /usr/local/node'
 
-RUN ln -s /usr/bin/python3 /usr/bin/python
+# --- Personal config LAST: editing these only rebuilds the layers below ---
+COPY bashrc /root/.bashrc
+RUN printf '\nexport NVM_DIR="$HOME/.nvm"\n[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"\n[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"\n' \
+        >> /root/.bashrc \
+    && touch /root/.bash_history
 
+COPY nvim /root/.config/nvim
+# Pre-install nvim plugins at build time so first launch is instant.
+# Uncomment the line matching your plugin manager:
+RUN nvim --headless "+Lazy! sync" +qa
+# RUN nvim --headless +PackerSync +qa
+
+WORKDIR /workspace
 CMD ["bash"]
