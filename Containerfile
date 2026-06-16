@@ -8,7 +8,9 @@ ARG NODE_VERSION=--lts
 
 # Tool PATHs declared up front so they work in non-interactive shells too
 # (e.g. `podman exec mycontainer cargo build`), not just login shells.
-ENV PATH="/root/.local/bin:/root/.cargo/bin:/usr/local/node/bin:${PATH}"
+ENV PATH="/root/.opencode/bin:/root/.local/bin:/root/.cargo/bin:/usr/local/node/bin:${PATH}"
+ENV SHELL=/bin/bash
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
 # --- Base packages (rarely changes) ---
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -63,6 +65,9 @@ RUN curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/instal
         && nvm alias default node \
         && npm install -g pnpm \
         && ln -s "$(dirname "$(dirname "$(nvm which default)")")" /usr/local/node'
+
+# --- opencode ---
+RUN curl -fsSL https://opencode.ai/install | bash
 
 # --- Personal config LAST: editing these only rebuilds the layers below ---
 COPY bashrc /root/.bashrc
