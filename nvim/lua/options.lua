@@ -173,6 +173,9 @@ for i=0,25 do vim.keymap.set("n", "'"..upp(i), "'"..low(i)) end
 -- ────────────────────────────────────────────────
 -- Terminal
 -- ────────────────────────────────────────────────
+-- Shell used by :terminal (falls back to $SHELL, then /bin/sh — be explicit).
+vim.opt.shell = '/bin/bash'
+
 local term_group = vim.api.nvim_create_augroup("Terminal", { clear = true })
 vim.api.nvim_create_autocmd("TermOpen", {
   group = term_group,
@@ -181,6 +184,7 @@ vim.api.nvim_create_autocmd("TermOpen", {
     vim.opt_local.relativenumber = true       -- Hide relative line numbers
     vim.opt_local.cursorline = true           -- Not highlight current line
     vim.opt_local.scrollback = 100000          -- Scrollback buffer size
+    vim.opt_local.list = false                -- Don't render listchars (»/·) over terminal output
   end,
 })
 

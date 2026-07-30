@@ -18,16 +18,16 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt install -y \
         ca-certificates curl git gh gcc make unzip \
         fd-find fzf jq ripgrep gnupg lsb-release \
-        python3 \
+        lsd ncurses-term python3 \
     && ln -s "$(command -v fdfind)" /usr/local/bin/fd \
     && ln -s "$(command -v python3)" /usr/local/bin/python \
     && apt clean \
     && rm -rf /var/lib/apt/lists/*
 
 # --- yazi (third-party repo) ---
-RUN curl -sS https://debian.griffo.io/EA0F721D231FDD3A0A17B9AC7808B4DD62C41256.asc \
+RUN curl -sS https://deb.griffo.io/EA0F721D231FDD3A0A17B9AC7808B4DD62C41256.asc \
         | gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/debian.griffo.io.gpg \
-    && echo "deb https://debian.griffo.io/apt $(lsb_release -sc) main" \
+    && echo "deb https://deb.griffo.io/apt $(lsb_release -sc) main" \
         > /etc/apt/sources.list.d/debian.griffo.io.list \
     && apt update \
     && apt install -y yazi \
