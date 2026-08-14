@@ -1,11 +1,10 @@
 # syntax=docker/dockerfile:1
-FROM fedora:44
+FROM ubuntu:24.04
 
 # Pin versions here; bump deliberately instead of getting "latest" by surprise.
 ARG NVIM_VERSION=v0.12.2
 ARG NVM_VERSION=v0.40.4
 ARG NODE_VERSION=--lts
-ARG YAZI_VERSION=v26.5.6
 
 # Tool PATHs declared up front so they work in non-interactive shells too
 # (e.g. `podman exec mycontainer cargo build`), not just login shells.
@@ -14,27 +13,26 @@ ENV SHELL=/bin/bash
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
 # --- Base packages (rarely changes) ---
-RUN dnf install -y \
-        ca-certificates curl git gh gcc make unzip tar gzip \
-        fd-find fzf jq ripgrep gnupg2 \
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && apt update \
+    && apt install -y \
+        ca-certificates curl git gh gcc make unzip \
+        fd-find fzf jq ripgrep gnupg lsb-release \
         lsd ncurses-term python3 zoxide \
+    && ln -s "$(command -v fdfind)" /usr/local/bin/fd \
     && ln -s "$(command -v python3)" /usr/local/bin/python \
-    && dnf clean all \
-    && rm -rf /var/cache/dnf
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# --- Yazi (pinned upstream release; it is not packaged in Fedora) ---
-RUN set -eux; \
-    ARCH="$(uname -m)"; \
-    case "$ARCH" in \
-        x86_64)  YAZI_ARCH="x86_64" ;; \
-        aarch64) YAZI_ARCH="aarch64" ;; \
-        *)       echo "Unsupported architecture: $ARCH"; exit 1 ;; \
-    esac; \
-    YAZI_DIR="yazi-${YAZI_ARCH}-unknown-linux-gnu"; \
-    curl -fL -o /tmp/yazi.zip \
-        "https://github.com/sxyazi/yazi/releases/download/${YAZI_VERSION}/${YAZI_DIR}.zip"; \
-    unzip -j /tmp/yazi.zip "${YAZI_DIR}/yazi" "${YAZI_DIR}/ya" -d /usr/local/bin; \
-    rm /tmp/yazi.zip
+# --- yazi (third-party repo) ---
+RUN curl -sS https://deb.griffo.io/EA0F721D231FDD3A0A17B9AC7808B4DD62C41256.asc \
+        | gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/debian.griffo.io.gpg \
+    && echo "deb https://deb.griffo.io/apt $(lsb_release -sc) main" \
+        > /etc/apt/sources.list.d/debian.griffo.io.list \
+    && apt update \
+    && apt install -y yazi \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # --- Neovim (pinned) ---
 RUN set -eux; \
