@@ -31,7 +31,8 @@ __prompt_command() {
     status_color='\[\e[31m\]'
   fi
 
-  PS1='\[\e[38;5;208m\]\u\[\e[0m\] \[\e[37m\]{  \w }\[\e[0m\] '
+  # Include the hostname so container and remote shells are easy to distinguish.
+  PS1='\[\e[38;5;208m\]\u@\h\[\e[0m\] \[\e[37m\]{  \w }\[\e[0m\] '
   PS1+="${status_color}${status}"
   PS1+='\[\e[0m\]\n\[\e[35m\]\[\e[0m\] '
 }

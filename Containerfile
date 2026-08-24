@@ -1,82 +1,38 @@
 # syntax=docker/dockerfile:1
 FROM fedora:44
 
-# Pin versions here; bump deliberately instead of getting "latest" by surprise.
-ARG NVIM_VERSION=v0.12.2
-ARG NVM_VERSION=v0.40.4
-ARG NODE_VERSION=--lts
-ARG YAZI_VERSION=v26.5.6
-
 # Tool PATHs declared up front so they work in non-interactive shells too
 # (e.g. `podman exec mycontainer cargo build`), not just login shells.
-ENV PATH="/root/.opencode/bin:/root/.local/bin:/root/.cargo/bin:/usr/local/node/bin:${PATH}"
+ENV PATH="/root/.local/bin:/root/.cargo/bin:${PATH}"
 ENV SHELL=/bin/bash
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
 # --- Base packages (rarely changes) ---
+# Keep Fedora's recommended dependencies: this is a devbox, so compatibility
+# and a complete toolchain matter more than minimizing the image.
 RUN dnf install -y \
         ca-certificates curl git gh gcc make unzip tar gzip \
-        fd-find fzf jq ripgrep gnupg2 \
-        lsd ncurses-term python3 zoxide \
+        fd-find fzf jq ripgrep gnupg2 "dnf-command(copr)" \
+        lsd ncurses-term neovim nodejs24 nodejs24-npm pnpm \
+        python3 uv zoxide \
+    && dnf copr enable -y lihaohong/yazi \
+    && dnf install -y yazi \
     && ln -s "$(command -v python3)" /usr/local/bin/python \
     && dnf clean all \
     && rm -rf /var/cache/dnf
-
-# --- Yazi (pinned upstream release; it is not packaged in Fedora) ---
-RUN set -eux; \
-    ARCH="$(uname -m)"; \
-    case "$ARCH" in \
-        x86_64)  YAZI_ARCH="x86_64" ;; \
-        aarch64) YAZI_ARCH="aarch64" ;; \
-        *)       echo "Unsupported architecture: $ARCH"; exit 1 ;; \
-    esac; \
-    YAZI_DIR="yazi-${YAZI_ARCH}-unknown-linux-gnu"; \
-    curl -fL -o /tmp/yazi.zip \
-        "https://github.com/sxyazi/yazi/releases/download/${YAZI_VERSION}/${YAZI_DIR}.zip"; \
-    unzip -j /tmp/yazi.zip "${YAZI_DIR}/yazi" "${YAZI_DIR}/ya" -d /usr/local/bin; \
-    rm /tmp/yazi.zip
-
-# --- Neovim (pinned) ---
-RUN set -eux; \
-    ARCH="$(uname -m)"; \
-    case "$ARCH" in \
-        x86_64)  NVIM_ARCH="x86_64" ;; \
-        aarch64) NVIM_ARCH="arm64" ;; \
-        *)       echo "Unsupported architecture: $ARCH"; exit 1 ;; \
-    esac; \
-    curl -fLO "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/nvim-linux-${NVIM_ARCH}.tar.gz"; \
-    tar xzf "nvim-linux-${NVIM_ARCH}.tar.gz"; \
-    mv "nvim-linux-${NVIM_ARCH}" /usr/local/nvim; \
-    ln -s /usr/local/nvim/bin/nvim /usr/local/bin/nvim; \
-    rm "nvim-linux-${NVIM_ARCH}.tar.gz"
-
-# --- uv (told not to touch .bashrc; PATH already set above) ---
-RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
 
 # --- Rust (likewise no profile edits; no redundant `rustup update`) ---
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
         | sh -s -- -y --no-modify-path --default-toolchain stable
 
-# --- Node via nvm + pnpm ---
-# PROFILE=/dev/null stops the installer from editing .bashrc (we manage that ourselves).
-# The /usr/local/node symlink exposes the default node on PATH for non-interactive shells.
-RUN curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" \
-        | PROFILE=/dev/null bash \
-    && bash -c 'source /root/.nvm/nvm.sh \
-        && nvm install ${NODE_VERSION} \
-        && nvm alias default node \
-        && npm install -g pnpm \
-        && ln -s "$(dirname "$(dirname "$(nvm which default)")")" /usr/local/node'
-
-# --- opencode ---
-RUN curl -fsSL https://opencode.ai/install | bash
+# --- Pi coding agent (official installer) ---
+RUN curl -fsSL https://pi.dev/install.sh | sh
 
 # --- Personal config LAST: editing these only rebuilds the layers below ---
 COPY bashrc /root/.bashrc
-RUN printf '\nexport NVM_DIR="$HOME/.nvm"\n[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"\n[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"\n' \
-        >> /root/.bashrc \
-    && touch /root/.bash_history
+RUN touch /root/.bash_history
 
+COPY pi/skills /root/.pi/agent/skills
 COPY nvim /root/.config/nvim
 # Pre-install nvim plugins at build time so first launch is instant.
 # Uncomment the line matching your plugin manager:
