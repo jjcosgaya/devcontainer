@@ -10,7 +10,7 @@ ARG NODE_VERSION=--lts
 # (e.g. `podman exec mycontainer cargo build`), not just login shells.
 ENV PATH="/root/.local/bin:/root/.cargo/bin:/usr/local/node/bin:${PATH}"
 ENV SHELL=/bin/bash
-ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+ENV LANG=en_US.UTF-8
 
 # --- Base packages (rarely changes) ---
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -18,7 +18,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt install -y \
         ca-certificates curl git gh gcc make unzip \
         fd-find fzf jq ripgrep gnupg lsb-release \
-        lsd ncurses-term python3 zoxide \
+        locales lsd ncurses-term python3 zoxide \
+    && locale-gen en_US.UTF-8 \
     && ln -s "$(command -v fdfind)" /usr/local/bin/fd \
     && ln -s "$(command -v python3)" /usr/local/bin/python \
     && apt clean \

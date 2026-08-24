@@ -5,13 +5,13 @@ FROM fedora:44
 # (e.g. `podman exec mycontainer cargo build`), not just login shells.
 ENV PATH="/root/.local/bin:/root/.cargo/bin:${PATH}"
 ENV SHELL=/bin/bash
-ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+ENV LANG=en_US.UTF-8
 
 # --- Base packages (rarely changes) ---
 # Keep Fedora's recommended dependencies: this is a devbox, so compatibility
 # and a complete toolchain matter more than minimizing the image.
 RUN dnf install -y \
-        ca-certificates curl git gh gcc make unzip tar gzip \
+        ca-certificates curl git gh gcc glibc-langpack-en make unzip tar gzip \
         fd-find fzf jq ripgrep gnupg2 "dnf-command(copr)" \
         lsd ncurses-term neovim nodejs24 nodejs24-npm pnpm \
         python3 uv zoxide \
