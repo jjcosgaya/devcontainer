@@ -41,6 +41,13 @@ PROMPT_COMMAND=__prompt_command
 alias ls='ls --color=auto'
 alias grep='grep --color=auto'
 
+# Enable programmable completion provided by the bash-completion package.
+if [[ -r /usr/share/bash-completion/bash_completion ]]; then
+  source /usr/share/bash-completion/bash_completion
+elif [[ -r /etc/bash_completion ]]; then
+  source /etc/bash_completion
+fi
+
 if command -v zoxide >/dev/null 2>&1; then
   eval "$(zoxide init bash)"
 fi

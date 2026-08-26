@@ -11,7 +11,7 @@ ENV LANG=en_US.UTF-8
 # Keep Fedora's recommended dependencies: this is a devbox, so compatibility
 # and a complete toolchain matter more than minimizing the image.
 RUN dnf install -y \
-        ca-certificates curl git gh gcc glibc-langpack-en make unzip tar gzip \
+        bash-completion ca-certificates curl git gh gcc glibc-langpack-en make unzip tar gzip \
         fd-find fzf jq ripgrep gnupg2 "dnf-command(copr)" \
         lsd ncurses-term neovim nodejs24 nodejs24-npm pnpm \
         python3 uv zoxide \
